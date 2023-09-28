@@ -4,6 +4,7 @@
 # Import of modules
 import numpy as np
 from scipy.fftpack import dct
+import scipy
 
 
 def split_meta_line(line, delimiter=' '):
@@ -17,13 +18,14 @@ def split_meta_line(line, delimiter=' '):
     """
 
     ###########################################################
-    # Here is your code
+    
+    speaker_id, gender, file_path = map(lambda x: x.strip(), line.split(delimiter))
 
     ###########################################################
 
     return speaker_id, gender, file_path
 
-def preemphasis(signal, pre_emphasis=0.97):
+def preemphasis(signal, pre_emphasis=-0.97):
     #Here you need to preemphasis input signal with pre_emphasis coeffitient
 
     """
@@ -33,7 +35,8 @@ def preemphasis(signal, pre_emphasis=0.97):
     """
 
     ###########################################################
-    # Here is your code
+    
+    emphasized_signal = np.append(signal[0], signal[1:] + pre_emphasis * signal[:-1])
 
     ###########################################################
 
@@ -64,7 +67,12 @@ def framing(emphasized_signal, sample_rate=16000, frame_size=0.025, frame_stride
                                                  # truncating any samples from the original signal
 
     ###########################################################
-    # Here is your code to compute frames
+    
+    window = scipy.signal.get_window("hamming", frame_length)
+    frames = np.zeros((num_frames, frame_length))
+    for i in range(num_frames):
+        k = i * frame_step
+        frames[i, :] = pad_signal[k: k + frame_length] * window
 
     ###########################################################
 
@@ -82,7 +90,8 @@ def power_spectrum(frames, NFFT=512):
     mag_frames = np.absolute(np.fft.rfft(frames, NFFT))  # Magnitude of the FFT
 
     ###########################################################
-    # Here is your code to compute pow_frames
+    
+    pow_frames = np.square(mag_frames) / NFFT # check transform ?! 1/nfft -?
 
     ###########################################################
 
@@ -98,20 +107,26 @@ def compute_fbank_filters(nfilt=40, sample_rate=16000, NFFT=512):
     :return: fbank [nfilt x (NFFT/2+1)]
     """
     
+    def mel2hz(freq):
+        return 700 * (np.exp(freq / 2595) - 1)
+        
+    def hz2mel(mel):
+        return 2595 * np.log(1 + mel / 700)
+    
     low_freq_mel = 0
     high_freq = sample_rate / 2
 
     ###########################################################
-    # Here is your code to convert Convert Hz to Mel: 
-    # high_freq -> high_freq_mel
+    
+    high_freq_mel = hz2mel(high_freq)
     
     ###########################################################
 
     mel_points = np.linspace(low_freq_mel, high_freq_mel, nfilt + 2) # equally spaced in mel scale
 
     ###########################################################
-    # Here is your code to convert Convert Mel to Hz: 
-    # mel_points -> hz_points
+    
+    hz_points = mel2hz(mel_points)
     
     ###########################################################
 
@@ -140,7 +155,9 @@ def compute_fbanks_features(pow_frames, fbank):
     """
     
     ###########################################################
-    # Here is your code to compute filter_banks_features
+    
+    assert pow_frames.shape[1] == fbank.shape[1]
+    filter_banks_features = pow_frames @ fbank.T
     
     ###########################################################
 
@@ -160,7 +177,8 @@ def compute_mfcc(filter_banks_features, num_ceps=20):
     """
     
     ###########################################################
-    # Here is your code to compute mfcc features
+    
+    mfcc = dct(filter_banks_features, norm='ortho')[:, 1:num_ceps]
     
     ###########################################################
 
@@ -189,7 +207,8 @@ def mvn_floating(features, LC, RC, unbiased=False):
          ) / (n - 1 if unbiased else n) - f ** 2 * (n / (n - 1) if unbiased else 1)
     
     ###########################################################
-    # Here is your code to compute normalised features
+   
+    normalised_features = (features - f) / np.sqrt(s)
     
     ###########################################################
 
