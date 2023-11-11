@@ -1,0 +1,3 @@
+Train the speaker embedding model.
+speakerlab/bin/train.py --config conf/cam++.yaml
+torchrun - ?

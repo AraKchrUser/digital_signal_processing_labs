@@ -54,9 +54,13 @@ class train_dataset_loader(Dataset):
 
         if self.augment:
             ###########################################################
-            # Here is your code
-
-            pass
+            # Here is your code TODO
+            if random.random() < 0.5: 
+                    if random.random() < 0.5:
+                        audio = self.augment_wav.reverberate(audio)
+                    else:
+                        noisecat = random.choice(self.augment_wav.noisetypes)
+                        audio = self.augment_wav.additive_noise(noisecat, audio)
             
             ###########################################################
             
@@ -198,6 +202,8 @@ class ResNet(nn.Module):
 
     def forward(self, x):
 
+        # x.shape=[bs, 1, 32240]
+        
         with torch.no_grad():
             
             with torch.cuda.amp.autocast(enabled=False):
@@ -205,11 +211,25 @@ class ResNet(nn.Module):
                 
                 if self.log_input: x = x.log()
                 
-                x = self.instancenorm(x).unsqueeze(1)
+                x = self.instancenorm(x).unsqueeze(1) # x.shape=[bs, 1, 40, 202]
 
         ###########################################################
         # Here is your code
+        x = self.conv1(x) # x.shape=[bs, 32, 40, 202]
+        x = self.bn1(x)
+        x = self.relu(x)
 
+        x = self.layer1(x) # x.shape=[bs, 32, 40, 202]
+        x = self.layer2(x) # x.shape=[bs, 64, 20, 101]
+        x = self.layer3(x) # x.shape=[bs, 128, 10, 51]
+        x = self.layer4(x) # x.shape=[bs, 256, 5, 26]
+
+        mean = torch.mean(x, dim=3) # x.shape=[bs, 256, 5]
+        std = torch.std(x, dim=3) # x.shape=[bs, 256, 5]
+        x = torch.cat((mean, std), dim=2) # x.shape=[bs, 256, 10]
+        x = torch.flatten(x, start_dim=1) # x.shape=[bs, 2560]
+
+        x = self.fc(x)
         ###########################################################
 
         return x
@@ -253,16 +273,28 @@ def train_network(train_loader, main_model, optimizer, scheduler, num_epoch, ver
     index   = 0
 
     for data, data_label in train_loader:
-
         data = data.transpose(1, 0)
         
         ###########################################################
         # Here is your code
+        data, data_label = data.cuda(), data_label.cuda()
+        optimizer.zero_grad()
+
+        loss_step, top1_step = main_model(data, data_label)
+        
+        loss_step.backward()
+        optimizer.step()
+        
+
+        top1 += top1_step.detach().item()
+        loss += loss_step.detach().item()
+
+        counter += 1
 
         ###########################################################
         
-        if verbose:
-            print("Epoch {:1.0f}, Batch {:1.0f}, LR {:f} Loss {:f}, Accuracy {:2.3f}%".format(num_epoch, counter, optimizer.param_groups[0]['lr'], loss/counter, top1/counter))
+        # if verbose:
+            # print("Epoch {:1.0f}, Batch {:1.0f}, LR {:f} Loss {:f}, Accuracy {:2.3f}%".format(num_epoch, counter, optimizer.param_groups[0]['lr'], loss/counter, top1/counter))
 
         if scheduler[1] == 'iteration': scheduler[0].step()
 
@@ -285,6 +317,14 @@ def test_network(test_loader, main_model):
         
         ###########################################################
         # Here is your code
+        data, data_label = data.cuda(), data_label.cuda()
+
+        with torch.no_grad():
+            loss_step, top1_step = main_model(data, data_label)
+
+        loss += loss_step.detach().item()
+        top1 += top1_step.detach().item()
+        counter += 1
         
         ###########################################################
 
