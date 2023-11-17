@@ -28,7 +28,7 @@ class train_dataset_loader(Dataset):
         self.augment     = augment
 
         if self.augment:
-            self.augment_wav = AugmentWAV(musan_path=musan_path, rir_path=rir_path, max_frames=max_frames)
+            self.augment_wav = AugmentWAV(musan_path=musan_path, rir_path=rir_path, max_frames=max_frames) 
 
         # Make a dictionary of ID names and ID indices
         dictkeys = list(set([x.split()[0] for x in train_list]))
@@ -59,8 +59,7 @@ class train_dataset_loader(Dataset):
                     if random.random() < 0.5:
                         audio = self.augment_wav.reverberate(audio)
                     else:
-                        noisecat = random.choice(self.augment_wav.noisetypes)
-                        audio = self.augment_wav.additive_noise(noisecat, audio)
+                        audio = self.augment_wav.additive_noise(random.choice(self.augment_wav.noisetypes), audio)
             
             ###########################################################
             
@@ -131,7 +130,7 @@ class ResNet(nn.Module):
         self.n_mels       = n_mels
         self.log_input    = log_input
 
-        self.torchfb        = torch.nn.Sequential(PreEmphasis(), 
+        self.torchfb      = torch.nn.Sequential(PreEmphasis(), 
                                                   torchaudio.transforms.MelSpectrogram(sample_rate=16000, 
                                                                                        n_fft=512, 
                                                                                        win_length=400, 
